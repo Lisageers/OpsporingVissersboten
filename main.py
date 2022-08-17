@@ -44,21 +44,33 @@ def readMetadata(img_path):
 
 
 def getMetadata(img_path):
-    metadict = {}
     f = img_path
     fd = open(f, encoding = 'latin-1')
     d= fd.read()
     xmp_start = d.find('<x:xmpmeta')
     xmp_end = d.find('</x:xmpmeta')
     xmp_str = d[xmp_start:xmp_end+12]
-    print(xmp_str, "\n")
+    # print(xmp_str, "\n")
     s = xmp_str
     lat_i = s.find('GpsLatitude')
     lat = float(s[lat_i+14:lat_i+24])
+    
     long_i = s.find('GpsLongitude')
     long = float(s[long_i+15:long_i+24])
-    # print(s.find('GimbalPitchDegree'))
-    return (lat, long)
+
+    h_i = s.find('RelativeAltitude')
+    h = float(s[h_i+18:h_i+24])
+    
+    yaw_i = s.find('GimbalYawDegree')
+    yaw =  float(s[yaw_i+17:yaw_i+23])
+
+    pitch_i = s.find('GimbalPitchDegree')
+    pitch =  float(s[pitch_i+19:pitch_i+25])
+
+    # niet altijd hetzelfde aantal nummers!!
+    roll_i = s.find('GimbalRollDegree')
+    roll =  float(s[roll_i+18:roll_i+23])
+    return (lat, long, h, yaw, pitch, roll)
 
 
 def searchPredictions(prediction):
@@ -78,19 +90,17 @@ def clearLayer():
             uCur.deleteRow()
 
 def pointToMap(p):
-
     arcpy.env.overwriteOutput = True
-    project = arcpy.mp.ArcGISProject(r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.aprx")
-    maps = project.listMaps()
-    print(maps)
-    for map in maps:
-        print(map.name)
-
-    map = maps[-1]
+    # project = arcpy.mp.ArcGISProject(r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.aprx")
+    # maps = project.listMaps()
+    # print(maps)
+    # for map in maps:
+    #     print(map.name)
+    # map = maps[-1]
+    
     pnt= arcpy.Point(p[1],p[0])
     pointGeom = arcpy.PointGeometry(pnt,arcpy.SpatialReference(4326))
    
-
     inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\dronepoint"
 
     with arcpy.da.InsertCursor(inputFCL,["SHAPE@XY"]) as iCur:
@@ -100,7 +110,8 @@ def pointToMap(p):
 
 def localise(img_path, prediction):
     metadata = getMetadata(img_path)
-    # print(metadata)
+    print(metadata)
+    print(prediction)
     #calculate coordinates from metadata
     return metadata
 
@@ -114,13 +125,13 @@ def opsporingsLoop(path, n):
         # print(prediction)
         if filtered_prediction[1] == "boat":
             point = localise(img_path, filtered_prediction)
-            pointToMap(point)
+            # pointToMap(point)
         # print(filtered_prediction)
 
 
 def main():
-    clearLayer()
-    opsporingsLoop(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 10)
+    # clearLayer()
+    opsporingsLoop(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 2)
 #    visualiseDetectionFromPath(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 39) 
 #    img_path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0098.JPG"
 #    readMetadata(img_path)
