@@ -29,10 +29,18 @@ def visualiseDetectionFromPath(path, n):
         print("\n")
 
 
-def localise(img_path, prediction):
-    metadata = getMetadata(img_path)
-    print(metadata)
-    #calculate coordinates from metadata
+def readMetadata(img_path):
+    img = Image.open(img_path)
+    exif = { ExifTags.TAGS[k]: v for k, v in img._getexif().items() if k in ExifTags.TAGS }
+    print(exif)
+
+    f = img_path
+    fd = open(f, encoding = 'latin-1')
+    d= fd.read()
+    xmp_start = d.find('<x:xmpmeta')
+    xmp_end = d.find('</x:xmpmeta')
+    xmp_str = d[xmp_start:xmp_end+12]
+    print(xmp_str)
 
 
 def getMetadata(img_path):
@@ -49,7 +57,7 @@ def getMetadata(img_path):
     lat = float(s[lat_i+14:lat_i+24])
     long_i = s.find('GpsLongitude')
     long = float(s[long_i+15:long_i+24])
-    print(s.find('GimbalPitchDegree'))
+    # print(s.find('GimbalPitchDegree'))
     return (lat, long)
 
 
@@ -59,22 +67,45 @@ def searchPredictions(prediction):
             return (prediction[0][i], prediction[1][i], prediction[2][i])
     return (None, None, None)
 
+def clearLayer():
+    arcpy.env.overwriteOutput = True
+    inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\dronepoint"
+    pointGeom = arcpy.PointGeometry(arcpy.Point(0,0),arcpy.SpatialReference(4326))
+    
+    arcpy.CopyFeatures_management([pointGeom], inputFCL)
+    with arcpy.da.UpdateCursor(inputFCL, ["SHAPE@XY"]) as uCur:
+        for row in uCur:
+            uCur.deleteRow()
 
-def readMetadata(img_path):
-    img = Image.open(img_path)
-    exif = { ExifTags.TAGS[k]: v for k, v in img._getexif().items() if k in ExifTags.TAGS }
-    print(exif)
+def pointToMap(p):
 
-    f = img_path
-    fd = open(f, encoding = 'latin-1')
-    d= fd.read()
-    xmp_start = d.find('<x:xmpmeta')
-    xmp_end = d.find('</x:xmpmeta')
-    xmp_str = d[xmp_start:xmp_end+12]
-    print(xmp_str)
+    arcpy.env.overwriteOutput = True
+    project = arcpy.mp.ArcGISProject(r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.aprx")
+    maps = project.listMaps()
+    print(maps)
+    for map in maps:
+        print(map.name)
+
+    map = maps[-1]
+    pnt= arcpy.Point(p[1],p[0])
+    pointGeom = arcpy.PointGeometry(pnt,arcpy.SpatialReference(4326))
+   
+
+    inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\dronepoint"
+
+    with arcpy.da.InsertCursor(inputFCL,["SHAPE@XY"]) as iCur:
+        iCur.insertRow(pointGeom)
 
 
-def opsporingLoop(path, n):
+
+def localise(img_path, prediction):
+    metadata = getMetadata(img_path)
+    # print(metadata)
+    #calculate coordinates from metadata
+    return metadata
+
+
+def opsporingsLoop(path, n):
     model = arcgis.learn.YOLOv3()
     for i in range(0,n,2):
         img_path = f"{path}{494+i}.JPG"
@@ -82,12 +113,14 @@ def opsporingLoop(path, n):
         filtered_prediction = searchPredictions(prediction)
         # print(prediction)
         if filtered_prediction[1] == "boat":
-            localise(img_path, filtered_prediction)
+            point = localise(img_path, filtered_prediction)
+            pointToMap(point)
         # print(filtered_prediction)
 
 
 def main():
-    opsporingLoop(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 2)
+    clearLayer()
+    opsporingsLoop(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 10)
 #    visualiseDetectionFromPath(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 39) 
 #    img_path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0098.JPG"
 #    readMetadata(img_path)
