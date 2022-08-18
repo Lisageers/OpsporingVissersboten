@@ -4,6 +4,7 @@ from PIL import Image,ExifTags
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
+from math import cos, tan, sin
 
 def visualiseDetectionFromPath(path, n):
     model = arcgis.learn.YOLOv3()
@@ -70,7 +71,13 @@ def getMetadata(img_path):
     # niet altijd hetzelfde aantal nummers!!
     roll_i = s.find('GimbalRollDegree')
     roll =  float(s[roll_i+18:roll_i+23])
-    return (lat, long, h, yaw, pitch, roll)
+
+    img = Image.open(img_path)
+    # kan sneller
+    exif = { ExifTags.TAGS[k]: v for k, v in img._getexif().items() if k in ExifTags.TAGS }
+    cf =  float(exif['FocalLength'])
+
+    return (lat, long, h, yaw, pitch, roll, cf)
 
 
 def searchPredictions(prediction):
@@ -110,8 +117,29 @@ def pointToMap(p):
 
 def localise(img_path, prediction):
     metadata = getMetadata(img_path)
-    print(metadata)
-    print(prediction)
+    # print(metadata)
+    # print(prediction)
+    yaw = metadata[3]
+    pitch = metadata[4]
+    roll = metadata[5]
+    cf = metadata[6]
+    x = prediction[0][0]
+    y = prediction[0][1]
+    a1 = cos(yaw) * cos(pitch)
+    a2 = cos(yaw) * sin(pitch) * sin(roll) - sin(yaw) * cos(roll)
+    a3 = cos(yaw) * sin(pitch) * cos(roll) + sin(yaw) * sin(roll)
+    a4 = sin(yaw) * cos(pitch)
+    a5 = sin(yaw) * sin(pitch) * sin(roll) + cos(yaw) * cos(roll)
+    a6 = sin(yaw) * sin(pitch) * cos(roll) - cos(yaw) * sin(roll)
+    a7 = -sin(pitch)
+    a8 = cos(pitch) * sin(roll)
+    a9 = cos(pitch) * cos(roll)
+
+    x_geo = (a1*x + a4*y + a7*cf)/(a3*x + a6*y + a9*cf) * -metadata[2] + metadata[0]
+    print(x_geo)
+
+    # generate rotation matrix
+    # rotM = [[a1, a2, a3], [a4, a5, a6], [a7, a8, a9]]
     #calculate coordinates from metadata
     return metadata
 
