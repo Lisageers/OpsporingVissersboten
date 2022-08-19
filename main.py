@@ -4,7 +4,7 @@ from PIL import Image,ExifTags
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
-from math import cos, tan, sin
+from math import cos, tan, sin, atan
 
 def visualiseDetectionFromPath(path, n):
     model = arcgis.learn.YOLOv3()
@@ -45,6 +45,7 @@ def readMetadata(img_path):
 
 
 def getMetadata(img_path):
+    metadict = {}
     f = img_path
     fd = open(f, encoding = 'latin-1')
     d= fd.read()
@@ -54,30 +55,35 @@ def getMetadata(img_path):
     # print(xmp_str, "\n")
     s = xmp_str
     lat_i = s.find('GpsLatitude')
-    lat = float(s[lat_i+14:lat_i+24])
+    metadict['latitude'] = float(s[lat_i+14:lat_i+24])
     
     long_i = s.find('GpsLongitude')
-    long = float(s[long_i+15:long_i+24])
+    metadict['longitude'] = float(s[long_i+15:long_i+24])
 
     h_i = s.find('RelativeAltitude')
-    h = float(s[h_i+18:h_i+24])
+    metadict['altitude'] = float(s[h_i+18:h_i+24])
     
     yaw_i = s.find('GimbalYawDegree')
-    yaw =  float(s[yaw_i+17:yaw_i+23])
+    metadict['yaw'] =  float(s[yaw_i+17:yaw_i+23])
 
     pitch_i = s.find('GimbalPitchDegree')
-    pitch =  float(s[pitch_i+19:pitch_i+25])
+    metadict['pitch'] =  float(s[pitch_i+19:pitch_i+25])
 
     # niet altijd hetzelfde aantal nummers!!
     roll_i = s.find('GimbalRollDegree')
-    roll =  float(s[roll_i+18:roll_i+23])
+    metadict['roll'] =  float(s[roll_i+18:roll_i+23])
 
     img = Image.open(img_path)
     # kan sneller
     exif = { ExifTags.TAGS[k]: v for k, v in img._getexif().items() if k in ExifTags.TAGS }
-    cf =  float(exif['FocalLength'])
+    metadict['focallength'] =  float(exif['FocalLength'])
+    metadict['pixelwidth'] =  float(exif['ImageWidth'])
+    metadict['pixelheight'] =  float(exif['ImageLength'])
 
-    return (lat, long, h, yaw, pitch, roll, cf)
+    metadict['camxdim'] = 6.4
+    metadict['camydim'] = 4.8
+
+    return metadict
 
 
 def searchPredictions(prediction):
@@ -117,26 +123,15 @@ def pointToMap(p):
 
 def localise(img_path, prediction):
     metadata = getMetadata(img_path)
-    # print(metadata)
-    # print(prediction)
-    yaw = metadata[3]
-    pitch = metadata[4]
-    roll = metadata[5]
-    cf = metadata[6]
-    x = prediction[0][0]
-    y = prediction[0][1]
-    a1 = cos(yaw) * cos(pitch)
-    a2 = cos(yaw) * sin(pitch) * sin(roll) - sin(yaw) * cos(roll)
-    a3 = cos(yaw) * sin(pitch) * cos(roll) + sin(yaw) * sin(roll)
-    a4 = sin(yaw) * cos(pitch)
-    a5 = sin(yaw) * sin(pitch) * sin(roll) + cos(yaw) * cos(roll)
-    a6 = sin(yaw) * sin(pitch) * cos(roll) - cos(yaw) * sin(roll)
-    a7 = -sin(pitch)
-    a8 = cos(pitch) * sin(roll)
-    a9 = cos(pitch) * cos(roll)
 
-    x_geo = (a1*x + a4*y + a7*cf)/(a3*x + a6*y + a9*cf) * -metadata[2] + metadata[0]
-    print(x_geo)
+    # print(metadata)
+
+    viewangl_x = 2 * atan(metadata['camxdim']/(2*metadata['focallength']))
+    viewangl_y = 2 * atan(metadata['camydim']/(2*metadata['focallength']))
+    mmp_x = (2 * metadata['altitude'] * tan((viewangl_x/2))) / metadata['pixelwidth']
+    mmp_y = (2 * metadata['altitude'] * tan((viewangl_y/2))) / metadata['pixelheight']
+    print(mmp_x)
+    print(mmp_y)
 
     # generate rotation matrix
     # rotM = [[a1, a2, a3], [a4, a5, a6], [a7, a8, a9]]
