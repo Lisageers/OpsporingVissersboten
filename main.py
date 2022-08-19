@@ -125,45 +125,24 @@ def pointToMap(p):
 
 def localise(img_path, prediction):
     metadata = getMetadata(img_path)
-    print(prediction)
-    print(metadata)
+
     # calculate meters per pixel
     viewangl_x = 2 * atan(metadata['camxdim']/(2*metadata['focallength']))
     viewangl_y = 2 * atan(metadata['camydim']/(2*metadata['focallength']))
     mmp_x = (2 * metadata['altitude'] * tan((viewangl_x/2))) / metadata['pixelwidth']
     mmp_y = (2 * metadata['altitude'] * tan((viewangl_y/2))) / metadata['pixelheight']
-    print(mmp_x* 8000)
-    print(mmp_y*6000)
 
     # rotate using yaw
-    x = prediction[0][0]
-    y = prediction[0][1]
-    yaw = metadata['yaw']
+    a = radians(metadata['yaw'])
+    middle_x, middle_y = round(metadata['pixelwidth'] / 2), round(metadata['pixelheight'] / 2)
+    pixeldist_x, pixeldist_y = prediction[0][0] - middle_x, prediction[0][1] - middle_y
 
-
-    a = radians(yaw)
-    new_x = x * cos(a) + y * sin(a)
-    new_y = x * -sin(a) + y * cos(a)
-
-    # print("rotatedfirst", new_x, new_y)
-
-    middle_x = round(metadata['pixelwidth'] / 2)
-    middle_y = round(metadata['pixelheight'] / 2)
-
-    pixeldist_x = prediction[0][0] - middle_x
-    pixeldist_y = prediction[0][1] - middle_y
-
-    # print("notrotated", pixeldist_x, pixeldist_y)
-    # print("differenceafter rot", (new_x - middle_x), (new_y - middle_y))
-
-    newer_x = pixeldist_x * cos(yaw) - pixeldist_y * sin(yaw)
-    newer_y = pixeldist_x * sin(yaw) + pixeldist_y * cos(yaw)
-    # print("differencebefore rot", newer_x, newer_y)
-
-    x, y = (new_x - middle_x), (new_y - middle_y)
+    rot_x = pixeldist_x * cos(a) + pixeldist_y * sin(a)
+    rot_y = pixeldist_x * -sin(a) + pixeldist_y * cos(a)
     
-    x_lat = ((x*mmp_x) / 111319.9) + metadata['latitude']
-    y_long = ((y*mmp_y) / 111319.9) + metadata['longitude']
+    # update lat long
+    x_lat = ((rot_x*mmp_x) / 111319.9) + metadata['latitude']
+    y_long = ((rot_y*mmp_y) / 111319.9) + metadata['longitude']
 
     return (x_lat, y_long)
 
@@ -174,11 +153,11 @@ def opsporingsLoop(path, n):
         img_path = f"{path}{494+i}.JPG"
         prediction = model.predict(img_path)
         filtered_prediction = searchPredictions(prediction)
-        # print(prediction)
+
         if filtered_prediction[1] == "boat":
             point = localise(img_path, filtered_prediction)
             pointToMap(point)
-        # print(filtered_prediction)
+
 
 
 def main():
