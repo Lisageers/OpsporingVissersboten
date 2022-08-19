@@ -1,10 +1,11 @@
+from hashlib import new
 import arcgis
 import arcpy
 from PIL import Image,ExifTags
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
-from math import cos, tan, sin, atan
+from math import cos, tan, sin, atan, radians
 
 def visualiseDetectionFromPath(path, n):
     model = arcgis.learn.YOLOv3()
@@ -94,7 +95,8 @@ def searchPredictions(prediction):
 
 def clearLayer():
     arcpy.env.overwriteOutput = True
-    inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\dronepoint"
+    # inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\dronepoint"
+    inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\calculatedpoint"
     pointGeom = arcpy.PointGeometry(arcpy.Point(0,0),arcpy.SpatialReference(4326))
     
     arcpy.CopyFeatures_management([pointGeom], inputFCL)
@@ -114,7 +116,7 @@ def pointToMap(p):
     pnt= arcpy.Point(p[1],p[0])
     pointGeom = arcpy.PointGeometry(pnt,arcpy.SpatialReference(4326))
    
-    inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\dronepoint"
+    inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\calculatedpoint"
 
     with arcpy.da.InsertCursor(inputFCL,["SHAPE@XY"]) as iCur:
         iCur.insertRow(pointGeom)
@@ -123,20 +125,47 @@ def pointToMap(p):
 
 def localise(img_path, prediction):
     metadata = getMetadata(img_path)
-
-    # print(metadata)
-
+    print(prediction)
+    print(metadata)
+    # calculate meters per pixel
     viewangl_x = 2 * atan(metadata['camxdim']/(2*metadata['focallength']))
     viewangl_y = 2 * atan(metadata['camydim']/(2*metadata['focallength']))
     mmp_x = (2 * metadata['altitude'] * tan((viewangl_x/2))) / metadata['pixelwidth']
     mmp_y = (2 * metadata['altitude'] * tan((viewangl_y/2))) / metadata['pixelheight']
-    print(mmp_x)
-    print(mmp_y)
+    print(mmp_x* 8000)
+    print(mmp_y*6000)
 
-    # generate rotation matrix
-    # rotM = [[a1, a2, a3], [a4, a5, a6], [a7, a8, a9]]
-    #calculate coordinates from metadata
-    return metadata
+    # rotate using yaw
+    x = prediction[0][0]
+    y = prediction[0][1]
+    yaw = metadata['yaw']
+
+
+    a = radians(yaw)
+    new_x = x * cos(a) + y * sin(a)
+    new_y = x * -sin(a) + y * cos(a)
+
+    # print("rotatedfirst", new_x, new_y)
+
+    middle_x = round(metadata['pixelwidth'] / 2)
+    middle_y = round(metadata['pixelheight'] / 2)
+
+    pixeldist_x = prediction[0][0] - middle_x
+    pixeldist_y = prediction[0][1] - middle_y
+
+    # print("notrotated", pixeldist_x, pixeldist_y)
+    # print("differenceafter rot", (new_x - middle_x), (new_y - middle_y))
+
+    newer_x = pixeldist_x * cos(yaw) - pixeldist_y * sin(yaw)
+    newer_y = pixeldist_x * sin(yaw) + pixeldist_y * cos(yaw)
+    # print("differencebefore rot", newer_x, newer_y)
+
+    x, y = (new_x - middle_x), (new_y - middle_y)
+    
+    x_lat = ((x*mmp_x) / 111319.9) + metadata['latitude']
+    y_long = ((y*mmp_y) / 111319.9) + metadata['longitude']
+
+    return (x_lat, y_long)
 
 
 def opsporingsLoop(path, n):
@@ -148,16 +177,17 @@ def opsporingsLoop(path, n):
         # print(prediction)
         if filtered_prediction[1] == "boat":
             point = localise(img_path, filtered_prediction)
-            # pointToMap(point)
+            pointToMap(point)
         # print(filtered_prediction)
 
 
 def main():
-    # clearLayer()
-    opsporingsLoop(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 2)
+    clearLayer()
+    opsporingsLoop(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 20)
 #    visualiseDetectionFromPath(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 39) 
 #    img_path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0098.JPG"
 #    readMetadata(img_path)
+
 
 
 if __name__ == "__main__":
