@@ -1,4 +1,3 @@
-from cmath import pi
 import arcgis
 import arcpy
 from PIL import Image,ExifTags
@@ -65,7 +64,7 @@ def getMetadata(img_path):
     metadict['altitude'] = float(s[h_i+18:h_i+24])
     
     yaw_i = s.find('GimbalYawDegree')
-    metadict['yaw'] =  float(s[yaw_i+17:yaw_i+23])
+    metadict['yaw'] =  float(s[yaw_i+17:yaw_i+23].replace('"', ''))
 
     pitch_i = s.find('GimbalPitchDegree')
     metadict['pitch'] =  float(s[pitch_i+19:pitch_i+25])
@@ -95,21 +94,21 @@ def searchPredictions(prediction):
 
 def clearLayer():
     arcpy.env.overwriteOutput = True
-    # inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\dronepoint"
-    # inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\calculatedpoint"
-    inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\calculatedpolygon"
-    # geom = arcpy.PointGeometry(arcpy.Point(0,0),arcpy.SpatialReference(4326))
-    lstCoords = [[6.1,52.5],[6.2,52.5],[6.2,52.6],[6.1,52.5]]
-    x = 6.1
-    y = 52.5
-    pnt= arcpy.Point(x,y)
-    arr = arcpy.Array()
-    for coords in lstCoords:
-        pnt = arcpy.Point(coords[0],coords[1])
-        arr.add(pnt)
-    geom = arcpy.Polygon(arr,arcpy.SpatialReference(4326))
 
-    
+    inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\calculatedpolygon"
+    array = arcpy.Array([arcpy.Point(0,0),
+                        arcpy.Point(0,0),
+                        arcpy.Point(0,0),
+                        arcpy.Point(0,0)
+                        ])
+    geom = arcpy.Polygon(array,arcpy.SpatialReference(4326))  
+    arcpy.CopyFeatures_management([geom], inputFCL)
+    with arcpy.da.UpdateCursor(inputFCL, ["SHAPE@"]) as uCur:
+        for row in uCur:
+            uCur.deleteRow()
+
+    inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\dronepoint"
+    geom = arcpy.PointGeometry(arcpy.Point(0,0),arcpy.SpatialReference(4326))
     arcpy.CopyFeatures_management([geom], inputFCL)
     with arcpy.da.UpdateCursor(inputFCL, ["SHAPE@XY"]) as uCur:
         for row in uCur:
@@ -117,31 +116,22 @@ def clearLayer():
 
 def pointToMap(p):
     arcpy.env.overwriteOutput = True
-    # project = arcpy.mp.ArcGISProject(r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.aprx")
-    # maps = project.listMaps()
-    # print(maps)
-    # for map in maps:
-    #     print(map.name)
-    # map = maps[-1]
-    
 
     array = arcpy.Array([arcpy.Point(p[1][0], p[0][0]),
                         arcpy.Point(p[1][1], p[0][1]),
                         arcpy.Point(p[1][2], p[0][2]),
                         arcpy.Point(p[1][3], p[0][3])
                         ])
-    polygon = arcpy.Polygon(array, arcpy.SpatialReference(4326))
-   
+    polygon = arcpy.Polygon(array, arcpy.SpatialReference(4326))  
     inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\calculatedpolygon"
     with arcpy.da.InsertCursor(inputFCL,["SHAPE@"]) as iCur:
         iCur.insertRow([polygon])
    
-    # inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\calculatedpoint"
-    # pnt= arcpy.Point(p[1],p[0])
-    # geom = arcpy.PointGeometry(pnt,arcpy.SpatialReference(4326))
-    # inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\calculatedpolygon"
-    # with arcpy.da.InsertCursor(inputFCL,["SHAPE@XY"]) as iCur:
-    #     iCur.insertRow([geom])
+    inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\dronepoint"
+    pnt= arcpy.Point(p[2][1],p[2][0])
+    geom = arcpy.PointGeometry(pnt,arcpy.SpatialReference(4326))
+    with arcpy.da.InsertCursor(inputFCL,["SHAPE@XY"]) as iCur:
+        iCur.insertRow([geom])
 
 
 
@@ -156,7 +146,6 @@ def localise(img_path, prediction):
 
     # rotate using yaw
     a = radians(metadata['yaw'])
-    print(prediction)
     pixel_x = [prediction[0][0], prediction[0][0]+ prediction[0][2]]
     pixel_y = [prediction[0][1], prediction[0][1]+ prediction[0][3]]
 
@@ -175,13 +164,14 @@ def localise(img_path, prediction):
     x_lat = [((x*mmp_x) / 111319.9) + metadata['latitude'] for x in rot_x]
     y_long = [((y*mmp_y) / 111319.9) + metadata['longitude'] for y in rot_y]
 
-    return (x_lat, y_long)
+    return (x_lat, y_long, (metadata['latitude'], metadata['longitude']))
 
 
 def opsporingsLoop(path, n):
     model = arcgis.learn.YOLOv3()
     for i in range(0,n,2):
         img_path = f"{path}{494+i}.JPG"
+        print(img_path)
         prediction = model.predict(img_path)
         filtered_prediction = searchPredictions(prediction)
 
@@ -193,7 +183,7 @@ def opsporingsLoop(path, n):
 
 def main():
     clearLayer()
-    opsporingsLoop(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 20)
+    opsporingsLoop(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 40)
 #    visualiseDetectionFromPath(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 39) 
 #    img_path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0098.JPG"
 #    readMetadata(img_path)
