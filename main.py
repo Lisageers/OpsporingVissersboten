@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
 from math import cos, tan, sin, atan, radians
+from os.path import exists
 
 def visualiseDetectionFromPath(path, n):
     model = arcgis.learn.YOLOv3()
@@ -103,6 +104,7 @@ def clearLayer():
                         ])
     geom = arcpy.Polygon(array,arcpy.SpatialReference(4326))  
     arcpy.CopyFeatures_management([geom], inputFCL)
+    arcpy.AddField_management(inputFCL, "Path", "TEXT")
     with arcpy.da.UpdateCursor(inputFCL, ["SHAPE@"]) as uCur:
         for row in uCur:
             uCur.deleteRow()
@@ -110,11 +112,12 @@ def clearLayer():
     inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\dronepoint"
     geom = arcpy.PointGeometry(arcpy.Point(0,0),arcpy.SpatialReference(4326))
     arcpy.CopyFeatures_management([geom], inputFCL)
-    with arcpy.da.UpdateCursor(inputFCL, ["SHAPE@XY"]) as uCur:
+    arcpy.AddField_management(inputFCL, "Path", "TEXT")
+    with arcpy.da.UpdateCursor(inputFCL, ["SHAPE@XY", "Path"]) as uCur:
         for row in uCur:
             uCur.deleteRow()
 
-def pointToMap(p):
+def pointToMap(p, str):
     arcpy.env.overwriteOutput = True
 
     array = arcpy.Array([arcpy.Point(p[1][0], p[0][0]),
@@ -124,14 +127,14 @@ def pointToMap(p):
                         ])
     polygon = arcpy.Polygon(array, arcpy.SpatialReference(4326))  
     inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\calculatedpolygon"
-    with arcpy.da.InsertCursor(inputFCL,["SHAPE@"]) as iCur:
-        iCur.insertRow([polygon])
+    with arcpy.da.InsertCursor(inputFCL,["SHAPE@", "Path"]) as iCur:
+        iCur.insertRow([polygon, str])
    
     inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\dronepoint"
     pnt= arcpy.Point(p[2][1],p[2][0])
     geom = arcpy.PointGeometry(pnt,arcpy.SpatialReference(4326))
-    with arcpy.da.InsertCursor(inputFCL,["SHAPE@XY"]) as iCur:
-        iCur.insertRow([geom])
+    with arcpy.da.InsertCursor(inputFCL,["SHAPE@XY", "Path"]) as iCur:
+        iCur.insertRow([geom, str])
 
 
 
@@ -170,20 +173,21 @@ def localise(img_path, prediction):
 def opsporingsLoop(path, n):
     model = arcgis.learn.YOLOv3()
     for i in range(0,n,2):
-        img_path = f"{path}{494+i}.JPG"
+        img_path = f"{path}{100+i}.JPG"
         print(img_path)
-        prediction = model.predict(img_path)
-        filtered_prediction = searchPredictions(prediction)
+        if exists(img_path):
+            prediction = model.predict(img_path)
+            filtered_prediction = searchPredictions(prediction)
 
-        if filtered_prediction[1] == "boat":
-            coords = localise(img_path, filtered_prediction)
-            pointToMap(coords)
+            if filtered_prediction[1] == "boat":
+                coords = localise(img_path, filtered_prediction)
+                pointToMap(coords, img_path)
 
 
 
 def main():
     clearLayer()
-    opsporingsLoop(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 40)
+    opsporingsLoop(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 4)
 #    visualiseDetectionFromPath(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 39) 
 #    img_path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0098.JPG"
 #    readMetadata(img_path)
