@@ -66,6 +66,8 @@ def getMetadata(img_path):
     
     yaw_i = s.find('GimbalYawDegree')
     metadict['yaw'] =  float(s[yaw_i+17:yaw_i+23].replace('"', ''))
+    if metadict['yaw'] < 0:
+        metadict['yaw'] = 360 - abs(metadict['yaw'])
 
     pitch_i = s.find('GimbalPitchDegree')
     metadict['pitch'] =  float(s[pitch_i+19:pitch_i+25])
@@ -172,10 +174,10 @@ def localise(img_path, prediction):
 
 def opsporingsLoop(path, n):
     model = arcgis.learn.YOLOv3()
-    for i in range(0,n,2):
-        img_path = f"{path}{100+i}.JPG"
-        print(img_path)
+    for i in range(0,n,1):
+        img_path = f"{path}{100+i}.JPG"  
         if exists(img_path):
+            print(img_path)
             prediction = model.predict(img_path)
             filtered_prediction = searchPredictions(prediction)
 
@@ -187,7 +189,7 @@ def opsporingsLoop(path, n):
 
 def main():
     clearLayer()
-    opsporingsLoop(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 4)
+    opsporingsLoop(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 2)
 #    visualiseDetectionFromPath(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 39) 
 #    img_path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0098.JPG"
 #    readMetadata(img_path)
