@@ -11,6 +11,7 @@ def visualiseDetectionFromPath(path, n):
     model = arcgis.learn.YOLOv3()
     for i in range(0,n,2):
         img_path = f"{path}{494+i}.JPG"
+        img_path = r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0546.JPG" 
         prediction = model.predict(img_path)
         
         x = np.array(Image.open(img_path), dtype=np.uint8)
@@ -90,10 +91,11 @@ def getMetadata(img_path):
 
 
 def searchPredictions(prediction):
+    pred_boats = []
     for i, p in enumerate(prediction[1]):
         if p == "boat":
-            return (prediction[0][i], prediction[1][i], prediction[2][i])
-    return (None, None, None)
+            pred_boats.append((prediction[0][i], prediction[1][i], prediction[2][i]))
+    return pred_boats
 
 def clearLayer():
     arcpy.env.overwriteOutput = True
@@ -162,8 +164,8 @@ def localise(img_path, prediction):
     bounding_box = [(pixeldist_x[0], pixeldist_y[0]), (pixeldist_x[1], pixeldist_y[0]),
                     (pixeldist_x[1], pixeldist_y[1]), (pixeldist_x[0], pixeldist_y[1])]
 
-    rot_x = [p[0] * cos(a) + p[1] * sin(a) for p in bounding_box]
-    rot_y = [p[0] * -sin(a) + p[1] * cos(a) for p in bounding_box]
+    rot_y = [p[0] * cos(a) + p[1] * sin(a) for p in bounding_box]
+    rot_x = [p[0] * -sin(a) + p[1] * cos(a) for p in bounding_box]
     
     # update lat long
     x_lat = [((x*mmp_x) / 111319.9) + metadata['latitude'] for x in rot_x]
@@ -175,24 +177,28 @@ def localise(img_path, prediction):
 def opsporingsLoop(path, n):
     model = arcgis.learn.YOLOv3()
     for i in range(0,n,1):
-        img_path = f"{path}{100+i}.JPG"  
+        img_path = f"{path}{100+i}.JPG"
+        # img_path = r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0450.JPG"
+        # img_path = r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0590.JPG"  
         if exists(img_path):
             print(img_path)
             prediction = model.predict(img_path)
             filtered_prediction = searchPredictions(prediction)
 
-            if filtered_prediction[1] == "boat":
-                coords = localise(img_path, filtered_prediction)
-                pointToMap(coords, img_path)
+            if filtered_prediction:
+                for pred_boat in filtered_prediction:
+                    coords = localise(img_path, pred_boat)
+                    pointToMap(coords, img_path)
 
 
 
 def main():
     clearLayer()
-    opsporingsLoop(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 2)
-#    visualiseDetectionFromPath(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 39) 
+    opsporingsLoop(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 527)
+    # visualiseDetectionFromPath(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 2) 
 #    img_path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0098.JPG"
 #    readMetadata(img_path)
+
 
 
 
