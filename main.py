@@ -164,14 +164,14 @@ def localise(img_path, prediction):
     bounding_box = [(pixeldist_x[0], pixeldist_y[0]), (pixeldist_x[1], pixeldist_y[0]),
                     (pixeldist_x[1], pixeldist_y[1]), (pixeldist_x[0], pixeldist_y[1])]
 
-    rot_y = [p[0] * cos(a) + p[1] * sin(a) for p in bounding_box]
-    rot_x = [p[0] * -sin(a) + p[1] * cos(a) for p in bounding_box]
+    rot_x = [p[0] * cos(a) + p[1] * sin(a) for p in bounding_box]
+    rot_y = [p[0] * -sin(a) + p[1] * cos(a) for p in bounding_box]
     
     # update lat long
-    x_lat = [((x*mmp_x) / 111319.9) + metadata['latitude'] for x in rot_x]
-    y_long = [((y*mmp_y) / 111319.9) + metadata['longitude'] for y in rot_y]
+    y_lat = [((y*mmp_y) / 111319.9) + metadata['latitude'] for y in rot_y]
+    x_long = [((x*mmp_x) / 111319.9) + metadata['longitude'] for x in rot_x]
 
-    return (x_lat, y_long, (metadata['latitude'], metadata['longitude']))
+    return (y_lat, x_long, (metadata['latitude'], metadata['longitude']))
 
 
 def opsporingsLoop(path, n):
@@ -179,7 +179,7 @@ def opsporingsLoop(path, n):
     for i in range(0,n,1):
         img_path = f"{path}{100+i}.JPG"
         # img_path = r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0450.JPG"
-        # img_path = r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0590.JPG"  
+        img_path = r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0590.JPG"  
         if exists(img_path):
             print(img_path)
             prediction = model.predict(img_path)
@@ -194,7 +194,7 @@ def opsporingsLoop(path, n):
 
 def main():
     clearLayer()
-    opsporingsLoop(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 527)
+    opsporingsLoop(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 1)
     # visualiseDetectionFromPath(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 2) 
 #    img_path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0098.JPG"
 #    readMetadata(img_path)
