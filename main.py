@@ -1,11 +1,21 @@
 import arcgis
 import arcpy
+import cv2
 from PIL import Image,ExifTags
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
 from math import cos, tan, sin, atan, radians
 from os.path import exists
+import os.path
+import io
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+from googleapiclient.http import MediaIoBaseDownload
+import urllib.request
 
 def visualiseDetectionFromPath(path, n):
     model = arcgis.learn.YOLOv3()
@@ -175,6 +185,20 @@ def localise(img_path, prediction):
 
 
 def opsporingsLoop(path, n):
+    SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
+    creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    # create drive api client
+    service = build('drive', 'v3', credentials=creds)
+
+    # Call the Drive v3 API
+    results = service.files().list(
+        pageSize=10, fields="nextPageToken, files(id, name)").execute()
+    items = results.get('files', [])
+    print(items)
+    file_id = items[0]['id']
+    img = download_file(file_id, service)
+
+
     model = arcgis.learn.YOLOv3()
     for i in range(0,n,1):
         img_path = f"{path}{100+i}.JPG"
@@ -182,18 +206,42 @@ def opsporingsLoop(path, n):
         img_path = r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0590.JPG"  
         if exists(img_path):
             print(img_path)
-            prediction = model.predict(img_path)
+            prediction = model.predict(img)
             filtered_prediction = searchPredictions(prediction)
 
             if filtered_prediction:
                 for pred_boat in filtered_prediction:
                     coords = localise(img_path, pred_boat)
-                    pointToMap(coords, img_path)
+                    # pointToMap(coords, img_path)
 
+
+
+
+def download_file(id, service):
+
+    try:
+        # pylint: disable=maybe-no-member
+        request = service.files().get_media(fileId=id)
+        file = io.BytesIO()
+        downloader = MediaIoBaseDownload(file, request)
+        done = False
+        while done is False:
+            status, done = downloader.next_chunk()
+            print(F'Download {int(status.progress() * 100)}.')
+
+    except HttpError as error:
+        print(F'An error occurred: {error}')
+        file = None
+
+    img = cv2.imdecode(np.asarray(bytearray(file.getvalue()), dtype=np.uint8), 1)
+    # imS = cv2.resize(img, (960, 540))
+    # cv2.imshow('image',imS)
+    # cv2.waitKey(10)
+    return img
 
 
 def main():
-    clearLayer()
+    # clearLayer()
     opsporingsLoop(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 1)
     # visualiseDetectionFromPath(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 2) 
 #    img_path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0098.JPG"
