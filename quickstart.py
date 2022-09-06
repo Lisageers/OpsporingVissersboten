@@ -10,6 +10,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
+from PIL import Image
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
@@ -44,7 +45,8 @@ def download_file(real_file_id):
     except HttpError as error:
         print(F'An error occurred: {error}')
         file = None
-
+    image = Image.open(file)
+    image.save(r"C:\Users\lgeers\Documents\OpsporingVissersboten\image.png")
     return file.getvalue()
 
 
