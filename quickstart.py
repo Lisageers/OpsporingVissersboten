@@ -10,7 +10,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
-from PIL import Image
+from PIL import Image,ExifTags
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
@@ -45,8 +45,19 @@ def download_file(real_file_id):
     except HttpError as error:
         print(F'An error occurred: {error}')
         file = None
-    image = Image.open(file)
-    image.save(r"C:\Users\lgeers\Documents\OpsporingVissersboten\image.png")
+    img = Image.open(file)
+    # image.save(r"C:\Users\lgeers\Documents\OpsporingVissersboten\image.png")
+
+    exif = { ExifTags.TAGS[k]: v for k, v in img._getexif().items() if k in ExifTags.TAGS }
+    # print(exif)
+
+    f = img
+    # fd = open(file, encoding = 'latin-1')
+    d= file.read()
+    xmp_start = d.find(str.encode('<x:xmpmeta'))
+    xmp_end = d.find(str.encode('</x:xmpmeta'))
+    xmp_str = d[xmp_start:xmp_end+12]
+    print(xmp_str)
     return file.getvalue()
 
 
