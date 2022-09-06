@@ -56,38 +56,41 @@ def readMetadata(img_path):
     print(xmp_str)
 
 
-def getMetadata(img_path):
+def getMetadata(img):
     metadict = {}
-    f = img_path
-    fd = open(f, encoding = 'latin-1')
-    d= fd.read()
+    img = Image.open(img)
+    # f = img_path
+    # fd = open(f, encoding = 'latin-1')
+    # d= fd.read()
+    print(img.getxmp())
+    d=img
     xmp_start = d.find('<x:xmpmeta')
-    xmp_end = d.find('</x:xmpmeta')
+    xmp_end = d.find(str.encode('</x:xmpmeta'))
     xmp_str = d[xmp_start:xmp_end+12]
-    # print(xmp_str, "\n")
+    print(xmp_str, "\n")
     s = xmp_str
-    lat_i = s.find('GpsLatitude')
+    lat_i = s.find(str.encode('GpsLatitude'))
     metadict['latitude'] = float(s[lat_i+14:lat_i+24])
     
-    long_i = s.find('GpsLongitude')
+    long_i = s.find(str.encode('GpsLongitude'))
     metadict['longitude'] = float(s[long_i+15:long_i+24])
 
-    h_i = s.find('RelativeAltitude')
+    h_i = s.find(str.encode('RelativeAltitude'))
     metadict['altitude'] = float(s[h_i+18:h_i+24])
     
-    yaw_i = s.find('GimbalYawDegree')
+    yaw_i = s.find(str.encode('GimbalYawDegree'))
     metadict['yaw'] =  float(s[yaw_i+17:yaw_i+23].replace('"', ''))
     if metadict['yaw'] < 0:
         metadict['yaw'] = 360 - abs(metadict['yaw'])
 
-    pitch_i = s.find('GimbalPitchDegree')
-    metadict['pitch'] =  float(s[pitch_i+19:pitch_i+25])
+    # pitch_i = s.find('GimbalPitchDegree')
+    # metadict['pitch'] =  float(s[pitch_i+19:pitch_i+25])
 
-    # niet altijd hetzelfde aantal nummers!!
-    roll_i = s.find('GimbalRollDegree')
-    metadict['roll'] =  float(s[roll_i+18:roll_i+23])
+    # # niet altijd hetzelfde aantal nummers!!
+    # roll_i = s.find('GimbalRollDegree')
+    # metadict['roll'] =  float(s[roll_i+18:roll_i+23])
 
-    img = Image.open(img_path)
+    
     # kan sneller
     exif = { ExifTags.TAGS[k]: v for k, v in img._getexif().items() if k in ExifTags.TAGS }
     metadict['focallength'] =  float(exif['FocalLength'])
@@ -131,7 +134,7 @@ def clearLayer():
         for row in uCur:
             uCur.deleteRow()
 
-def pointToMap(p, str):
+def pointToMap(p, id):
     arcpy.env.overwriteOutput = True
 
     array = arcpy.Array([arcpy.Point(p[1][0], p[0][0]),
@@ -142,13 +145,13 @@ def pointToMap(p, str):
     polygon = arcpy.Polygon(array, arcpy.SpatialReference(4326))  
     inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\calculatedpolygon"
     with arcpy.da.InsertCursor(inputFCL,["SHAPE@", "Path"]) as iCur:
-        iCur.insertRow([polygon, str])
+        iCur.insertRow([polygon, f"https://drive.google.com/file/d/{id}"])
    
     inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\dronepoint"
     pnt= arcpy.Point(p[2][1],p[2][0])
     geom = arcpy.PointGeometry(pnt,arcpy.SpatialReference(4326))
     with arcpy.da.InsertCursor(inputFCL,["SHAPE@XY", "Path"]) as iCur:
-        iCur.insertRow([geom, str])
+        iCur.insertRow([geom, f"https://drive.google.com/file/d/{id}"])
 
 
 
@@ -196,7 +199,7 @@ def opsporingsLoop(path, n):
     items = results.get('files', [])
     print(items)
     file_id = items[0]['id']
-    img = download_file(file_id, service)
+    img, bytes = download_file(file_id, service)
 
 
     model = arcgis.learn.YOLOv3()
@@ -211,7 +214,7 @@ def opsporingsLoop(path, n):
 
             if filtered_prediction:
                 for pred_boat in filtered_prediction:
-                    coords = localise(img_path, pred_boat)
+                    coords = localise(bytes, pred_boat)
                     # pointToMap(coords, img_path)
 
 
@@ -237,7 +240,7 @@ def download_file(id, service):
     # imS = cv2.resize(img, (960, 540))
     # cv2.imshow('image',imS)
     # cv2.waitKey(10)
-    return img
+    return img, file
 
 
 def main():
