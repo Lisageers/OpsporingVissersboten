@@ -59,37 +59,14 @@ def readMetadata(img_path):
 def getMetadata(img):
     metadict = {}
     img = Image.open(img)
-    # f = img_path
-    # fd = open(f, encoding = 'latin-1')
-    # d= fd.read()
-    print(img.getxmp())
-    d=img
-    xmp_start = d.find('<x:xmpmeta')
-    xmp_end = d.find(str.encode('</x:xmpmeta'))
-    xmp_str = d[xmp_start:xmp_end+12]
-    print(xmp_str, "\n")
-    s = xmp_str
-    lat_i = s.find(str.encode('GpsLatitude'))
-    metadict['latitude'] = float(s[lat_i+14:lat_i+24])
-    
-    long_i = s.find(str.encode('GpsLongitude'))
-    metadict['longitude'] = float(s[long_i+15:long_i+24])
-
-    h_i = s.find(str.encode('RelativeAltitude'))
-    metadict['altitude'] = float(s[h_i+18:h_i+24])
-    
-    yaw_i = s.find(str.encode('GimbalYawDegree'))
-    metadict['yaw'] =  float(s[yaw_i+17:yaw_i+23].replace('"', ''))
+    xmp = img.getxmp()['xmpmeta']['RDF']['Description']
+ 
+    metadict['latitude'] = float(xmp['GpsLatitude'])
+    metadict['longitude'] = float(xmp['GpsLongitude'])
+    metadict['altitude'] = float(xmp['RelativeAltitude'])
+    metadict['yaw'] =  float(xmp['GimbalYawDegree'])
     if metadict['yaw'] < 0:
         metadict['yaw'] = 360 - abs(metadict['yaw'])
-
-    # pitch_i = s.find('GimbalPitchDegree')
-    # metadict['pitch'] =  float(s[pitch_i+19:pitch_i+25])
-
-    # # niet altijd hetzelfde aantal nummers!!
-    # roll_i = s.find('GimbalRollDegree')
-    # metadict['roll'] =  float(s[roll_i+18:roll_i+23])
-
     
     # kan sneller
     exif = { ExifTags.TAGS[k]: v for k, v in img._getexif().items() if k in ExifTags.TAGS }
@@ -197,7 +174,6 @@ def opsporingsLoop(path, n):
     results = service.files().list(
         pageSize=10, fields="nextPageToken, files(id, name)").execute()
     items = results.get('files', [])
-    print(items)
     file_id = items[0]['id']
     img, bytes = download_file(file_id, service)
 
@@ -208,14 +184,13 @@ def opsporingsLoop(path, n):
         # img_path = r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0450.JPG"
         img_path = r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0590.JPG"  
         if exists(img_path):
-            print(img_path)
             prediction = model.predict(img)
             filtered_prediction = searchPredictions(prediction)
 
             if filtered_prediction:
                 for pred_boat in filtered_prediction:
                     coords = localise(bytes, pred_boat)
-                    # pointToMap(coords, img_path)
+                    pointToMap(coords, file_id)
 
 
 
@@ -230,7 +205,6 @@ def download_file(id, service):
         done = False
         while done is False:
             status, done = downloader.next_chunk()
-            print(F'Download {int(status.progress() * 100)}.')
 
     except HttpError as error:
         print(F'An error occurred: {error}')
@@ -244,7 +218,7 @@ def download_file(id, service):
 
 
 def main():
-    # clearLayer()
+    clearLayer()
     opsporingsLoop(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 1)
     # visualiseDetectionFromPath(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 2) 
 #    img_path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0098.JPG"
