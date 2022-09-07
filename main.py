@@ -1,3 +1,4 @@
+from re import I
 import arcgis
 import arcpy
 import cv2
@@ -164,39 +165,7 @@ def localise(img_path, prediction):
     return (y_lat, x_long, (metadata['latitude'], metadata['longitude']))
 
 
-def opsporingsLoop(path, n):
-    SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
-    creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    # create drive api client
-    service = build('drive', 'v3', credentials=creds)
-
-    # Call the Drive v3 API
-    results = service.files().list(
-        pageSize=10, fields="nextPageToken, files(id, name)").execute()
-    items = results.get('files', [])
-    file_id = items[0]['id']
-    img, bytes = download_file(file_id, service)
-
-
-    model = arcgis.learn.YOLOv3()
-    for i in range(0,n,1):
-        img_path = f"{path}{100+i}.JPG"
-        # img_path = r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0450.JPG"
-        img_path = r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0590.JPG"  
-        if exists(img_path):
-            prediction = model.predict(img)
-            filtered_prediction = searchPredictions(prediction)
-
-            if filtered_prediction:
-                for pred_boat in filtered_prediction:
-                    coords = localise(bytes, pred_boat)
-                    pointToMap(coords, file_id)
-
-
-
-
 def download_file(id, service):
-
     try:
         # pylint: disable=maybe-no-member
         request = service.files().get_media(fileId=id)
@@ -217,15 +186,52 @@ def download_file(id, service):
     return img, file
 
 
+def opsporingsLoop():
+    SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
+    creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    # create drive api client
+    service = build('drive', 'v3', credentials=creds)
+
+    # Call the Drive v3 API
+    results = service.files().list(
+        pageSize=10, fields="nextPageToken, files(id, name)").execute()
+    items = results.get('files', [])
+    file_id = items[0]['id']
+    
+
+    stack = [file_id]
+    visited = []
+
+    model = arcgis.learn.YOLOv3()
+    while stack: 
+        results = service.files().list(
+        pageSize=10, fields="nextPageToken, files(id, name)").execute()
+        items = results.get('files', [])
+        items.reverse()
+        for pic in items:
+            if pic['id'] in visited:
+                break
+            stack.append(pic['id'])
+
+        id = stack.pop(0)
+        img, bytes = download_file(id, service)
+        prediction = model.predict(img)
+        filtered_prediction = searchPredictions(prediction)
+
+        for pred_boat in filtered_prediction:
+            coords = localise(bytes, pred_boat)
+            pointToMap(coords, file_id)
+        
+        visited.append(id)
+            
+
+
 def main():
     clearLayer()
-    opsporingsLoop(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 1)
+    opsporingsLoop()
     # visualiseDetectionFromPath(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 2) 
 #    img_path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0098.JPG"
 #    readMetadata(img_path)
-
-
-
 
 
 
