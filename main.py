@@ -1,3 +1,7 @@
+# import sys
+
+# sys.path.append(r'c:\users\lgeers\appdata\local\programs\python\python310\lib\site-packages')
+
 from re import I
 import arcgis
 import arcpy
@@ -17,6 +21,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
 import urllib.request
+import torch
 
 def visualiseDetectionFromPath(path, n):
     model = arcgis.learn.YOLOv3()
@@ -70,11 +75,16 @@ def getMetadata(img):
         metadict['yaw'] = 360 - abs(metadict['yaw'])
     
     # kan sneller
+    # exif2 = img.getexif()
+    # exif3 = exif2._get_merged_dict()
+    # # exif4 = exif2._get_ifd_dict()
     exif = { ExifTags.TAGS[k]: v for k, v in img._getexif().items() if k in ExifTags.TAGS }
     metadict['focallength'] =  float(exif['FocalLength'])
-    metadict['pixelwidth'] =  float(exif['ImageWidth'])
-    metadict['pixelheight'] =  float(exif['ImageLength'])
+    # metadict['pixelwidth'] =  float(exif['ImageWidth'])
+    # metadict['pixelheight'] =  float(exif['ImageLength'])
 
+    metadict['pixelwidth'] =  416
+    metadict['pixelheight'] =  416
     metadict['camxdim'] = 6.4
     metadict['camydim'] = 4.8
 
@@ -188,7 +198,7 @@ def download_file(id, service):
 
 def opsporingsLoop():
     SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
-    creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    creds = Credentials.from_authorized_user_file(r'C:\Users\lgeers\Documents\OpsporingVissersboten\token.json', SCOPES)
     # create drive api client
     service = build('drive', 'v3', credentials=creds)
 
@@ -215,12 +225,17 @@ def opsporingsLoop():
 
         id = stack.pop(0)
         img, bytes = download_file(id, service)
+        print(img.shape)
+        img = cv2.resize(img, (416, 416))
+        
         prediction = model.predict(img)
         filtered_prediction = searchPredictions(prediction)
 
         for pred_boat in filtered_prediction:
+            # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            # bytes = Image.fromarray(img)
             coords = localise(bytes, pred_boat)
-            pointToMap(coords, file_id)
+            pointToMap(coords, id)
         
         visited.append(id)
             
