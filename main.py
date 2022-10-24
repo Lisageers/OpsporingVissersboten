@@ -75,9 +75,6 @@ def getMetadata(img):
         metadict['yaw'] = 360 - abs(metadict['yaw'])
     
     # kan sneller
-    # exif2 = img.getexif()
-    # exif3 = exif2._get_merged_dict()
-    # # exif4 = exif2._get_ifd_dict()
     exif = { ExifTags.TAGS[k]: v for k, v in img._getexif().items() if k in ExifTags.TAGS }
     metadict['focallength'] =  float(exif['FocalLength'])
     # metadict['pixelwidth'] =  float(exif['ImageWidth'])
@@ -162,9 +159,7 @@ def polygonToOnline(p, id):
 
 
 
-def localise(img_path, prediction):
-    metadata = getMetadata(img_path)
-
+def localise(metadata, prediction):
     # calculate meters per pixel
     viewangl_x = 2 * atan(metadata['camxdim']/(2*metadata['focallength']))
     viewangl_y = 2 * atan(metadata['camydim']/(2*metadata['focallength']))
@@ -235,23 +230,20 @@ def opsporingsLoop():
     while stack:
 
         id = stack.pop(0)
-        print(id)
         img, bytes = download_file(id, service)
-        print(img.shape)
         img = cv2.resize(img, (416, 416))
-
+        
         metadata = getMetadata(bytes)
         pointToOnline(metadata['latitude'], metadata['longitude'], id)
+        
         prediction = model.predict(img)
         filtered_prediction = searchPredictions(prediction)
 
         for pred_boat in filtered_prediction:
-            coords = localise(bytes, pred_boat)
+            coords = localise(metadata, pred_boat)
             polygonToOnline(coords, id)
         
         visited.append(id)
-        print("visited",len(visited))
-        print(len(stack))
 
         results = service.files().list(
         pageSize=10, fields="nextPageToken, files(id, name)",q="mimeType='image/jpeg' and name contains 'DJI'").execute()
@@ -261,7 +253,7 @@ def opsporingsLoop():
             if pic['id'] in visited:
                 break
             stack.append(pic['id'])
-            print(pic)
+
             
 
 
