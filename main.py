@@ -141,6 +141,25 @@ def pointToMap(p, id):
     with arcpy.da.InsertCursor(inputFCL,["SHAPE@XY", "Path"]) as iCur:
         iCur.insertRow([geom, f"https://drive.google.com/file/d/{id}"])
 
+def pointToOnline(lat, long, id):
+    gis = arcgis.GIS("HOME")
+    items = gis.content.search("id:241f2b13bf3c468d912fb7bbf817ef28")
+    fl = items[0].layers[0]
+    newfeature = arcgis.features.Feature({"x":long,"y":lat,"spatialReference":{"wkid":4326}}, {"Path": f"https://drive.google.com/file/d/{id}"})
+    results = fl.edit_features(adds = [newfeature])
+
+
+def polygonToOnline(p, id):
+    gis = arcgis.GIS("HOME")
+
+    print("Searching items")
+    items = gis.content.search("id:8af5c0fd78c24725b700e6fe5e980bba")
+    fl = items[0].layers[0]
+    # newfeature = arcgis.features.Feature({"x":p[1][0],"y":p[0][0],"spatialReference":{"wkid":4326}}, {"Path": f"https://drive.google.com/file/d/{id}"})
+    newfeature = arcgis.features.Feature({"rings": [[[p[1][0], p[0][0]],[p[1][1], p[0][1]],[p[1][2], p[0][2]],
+    [p[1][3], p[0][3]]]],"spatialReference":{"wkid":4326}}, {"Path": f"https://drive.google.com/file/d/{id}"})
+    results = fl.edit_features(adds = [newfeature])
+
 
 
 def localise(img_path, prediction):
@@ -204,7 +223,7 @@ def opsporingsLoop():
 
     # Call the Drive v3 API
     results = service.files().list(
-        pageSize=10, fields="nextPageToken, files(id, name)").execute()
+        pageSize=10, fields="nextPageToken, files(id, name)", q="mimeType='image/jpeg' and name contains 'DJI'").execute()
     items = results.get('files', [])
     file_id = items[0]['id']
     
@@ -213,36 +232,41 @@ def opsporingsLoop():
     visited = []
 
     model = arcgis.learn.YOLOv3()
-    while stack: 
+    while stack:
+
+        id = stack.pop(0)
+        print(id)
+        img, bytes = download_file(id, service)
+        print(img.shape)
+        img = cv2.resize(img, (416, 416))
+
+        metadata = getMetadata(bytes)
+        pointToOnline(metadata['latitude'], metadata['longitude'], id)
+        prediction = model.predict(img)
+        filtered_prediction = searchPredictions(prediction)
+
+        for pred_boat in filtered_prediction:
+            coords = localise(bytes, pred_boat)
+            polygonToOnline(coords, id)
+        
+        visited.append(id)
+        print("visited",len(visited))
+        print(len(stack))
+
         results = service.files().list(
-        pageSize=10, fields="nextPageToken, files(id, name)").execute()
+        pageSize=10, fields="nextPageToken, files(id, name)",q="mimeType='image/jpeg' and name contains 'DJI'").execute()
         items = results.get('files', [])
         items.reverse()
         for pic in items:
             if pic['id'] in visited:
                 break
             stack.append(pic['id'])
-
-        id = stack.pop(0)
-        img, bytes = download_file(id, service)
-        print(img.shape)
-        img = cv2.resize(img, (416, 416))
-        
-        prediction = model.predict(img)
-        filtered_prediction = searchPredictions(prediction)
-
-        for pred_boat in filtered_prediction:
-            # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            # bytes = Image.fromarray(img)
-            coords = localise(bytes, pred_boat)
-            pointToMap(coords, id)
-        
-        visited.append(id)
+            print(pic)
             
 
 
 def main():
-    clearLayer()
+    # clearLayer()
     opsporingsLoop()
     # visualiseDetectionFromPath(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 2) 
 #    img_path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0098.JPG"
