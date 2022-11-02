@@ -119,7 +119,7 @@ def clearLayer():
         for row in uCur:
             uCur.deleteRow()
 
-def pointToMap(p, id):
+def polygonToMap(p, id):
     arcpy.env.overwriteOutput = True
 
     array = arcpy.Array([arcpy.Point(p[1][0], p[0][0]),
@@ -171,10 +171,9 @@ def localise(metadata, prediction):
     pixel_x = [prediction[0][0], prediction[0][0]+ prediction[0][2]]
     pixel_y = [prediction[0][1], prediction[0][1]+ prediction[0][3]]
 
-
     middle_x, middle_y = round(metadata['pixelwidth'] / 2), round(metadata['pixelheight'] / 2)
-    pixeldist_x = [i - middle_x for i in pixel_x]
-    pixeldist_y = [i - middle_y for i in pixel_y]
+    pixeldist_x = [(i - middle_x) for i in pixel_x]
+    pixeldist_y = [-(i - middle_y) for i in pixel_y]
 
     bounding_box = [(pixeldist_x[0], pixeldist_y[0]), (pixeldist_x[1], pixeldist_y[0]),
                     (pixeldist_x[1], pixeldist_y[1]), (pixeldist_x[0], pixeldist_y[1])]
@@ -242,6 +241,7 @@ def opsporingsLoop():
         for pred_boat in filtered_prediction:
             coords = localise(metadata, pred_boat)
             polygonToOnline(coords, id)
+            # polygonToMap(coords, id)
         
         visited.append(id)
 
@@ -258,7 +258,7 @@ def opsporingsLoop():
 
 
 def main():
-    # clearLayer()
+    clearLayer()
     opsporingsLoop()
     # visualiseDetectionFromPath(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 2) 
 #    img_path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0098.JPG"

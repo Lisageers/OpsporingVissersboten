@@ -10,7 +10,7 @@ from PIL import Image,ExifTags
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
-from math import cos, tan, sin, atan, radians
+from math import cos, tan, sin, atan, radians, degrees
 from os.path import exists
 import os.path
 import io
@@ -27,8 +27,8 @@ def visualiseDetectionFromPath(path, n):
     model = arcgis.learn.YOLOv3()
     for i in range(0,n,2):
         img_path = f"{path}{494+i}.JPG"
-        img_path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0667.JPG" 
-        img = cv2.imread(r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0667.JPG")
+        img_path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0592.JPG" 
+        img = cv2.imread(r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0124.JPG")
         img_d = cv2.resize(img, (416, 416))
         pred = model.predict(img_d)
         
@@ -120,6 +120,13 @@ def clearLayer():
     arcpy.CopyFeatures_management([geom], inputFCL)
     arcpy.AddField_management(inputFCL, "Path", "TEXT")
     with arcpy.da.UpdateCursor(inputFCL, ["SHAPE@XY", "Path"]) as uCur:
+        for row in uCur:
+            uCur.deleteRow()
+    
+    inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\calculatedpoint"
+    geom = arcpy.PointGeometry(arcpy.Point(0,0),arcpy.SpatialReference(4326))
+    arcpy.CopyFeatures_management([geom], inputFCL)
+    with arcpy.da.UpdateCursor(inputFCL, ["SHAPE@XY"]) as uCur:
         for row in uCur:
             uCur.deleteRow()
 
@@ -223,15 +230,15 @@ def localise3d(metadata, pred):
     pixel_x = pred[0][0]+ (pred[0][2]/2)
     pixel_y = pred[0][1]
 
-    rot_x = pixel_x * cos(a) + pixel_y * sin(a) 
-    rot_y = pixel_x * -sin(a) + pixel_y * cos(a)
-
     middle_x, middle_y = round(metadata['pixelwidth'] / 2), round(metadata['pixelheight'] / 2)
-    pixeldist_x = rot_x - middle_x
-    pixeldist_y = rot_y - middle_y 
+    pixeldist_x = pixel_x - middle_x
+    pixeldist_y = pixel_y - middle_y 
 
-    gd_x = metadata['altitude'] * tan(pixeldist_x*fov_per_pixelx + pitch)
-    gd_y = metadata['altitude'] * tan(pixeldist_y*fov_per_pixely + pitch)
+    rot_x = pixeldist_x * cos(a) + pixeldist_y * sin(a) 
+    rot_y = pixeldist_x * -sin(a) + pixeldist_y * cos(a)
+
+    gd_x = metadata['altitude'] * tan(rot_x*fov_per_pixelx + pitch)
+    gd_y = metadata['altitude'] * tan(rot_y*fov_per_pixely + pitch)
 
     # # update lat long
     y_lat = (gd_y / 111319.9) + metadata['latitude'] 
@@ -308,22 +315,24 @@ def opsporingsLoop():
 
 
 def main():
-    clearLayer()
+    # clearLayer()
     # opsporingsLoop()
-    # visualiseDetectionFromPath(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 2) 
+    visualiseDetectionFromPath(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 2) 
     # path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0098.JPG"
 #    readMetadata(img_path)
-    path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0667.JPG"
-    img = cv2.imread(path)
-    img_d = cv2.resize(img, (416, 416))
-    model = arcgis.learn.YOLOv3()
-    pred = model.predict(img_d)  
-    metadata = getMetadata(path)    
-    filtered_prediction = searchPredictions(pred) 
-    for pred_boat in filtered_prediction:
-        coords = localise3d(metadata, pred_boat)
-        # coords = localise(metadata, pred_boat)
-        pointToMap(coords, path)
+    # path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0667.JPG"
+    # img = cv2.imread(path)
+    # img_d = cv2.resize(img, (416, 416))
+    # model = arcgis.learn.YOLOv3()
+    # pred = model.predict(img_d)  
+    # metadata = getMetadata(path)    
+    # filtered_prediction = searchPredictions(pred) 
+    # for pred_boat in filtered_prediction:
+    #     coords = localise3d(metadata, pred_boat)
+    #     # coords = localise(metadata, pred_boat)
+    #     pointToMap(coords, path)
+    #     # 121.80337524414062, 180.82923889160156, 53.75262451171875, 16.475677490234375
+    #     # break
 
 
 
