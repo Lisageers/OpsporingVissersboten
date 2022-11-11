@@ -22,6 +22,7 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
 import urllib.request
 import torch
+import time
 
 def visualiseDetectionFromPath(path, n):
     model = arcgis.learn.YOLOv3()
@@ -210,6 +211,7 @@ def download_file(id, service):
 
 
 def opsporingsLoop():
+    
     SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
     creds = Credentials.from_authorized_user_file(r'C:\Users\lgeers\Documents\OpsporingVissersboten\token.json', SCOPES)
     # create drive api client
@@ -220,40 +222,55 @@ def opsporingsLoop():
         pageSize=10, fields="nextPageToken, files(id, name)", q="mimeType='image/jpeg' and name contains 'DJI'").execute()
     items = results.get('files', [])
     file_id = items[0]['id']
-    
+
 
     stack = [file_id]
     visited = []
 
     model = arcgis.learn.YOLOv3()
     while stack:
-
+        st_tot = time.time()
         id = stack.pop(0)
         img, bytes = download_file(id, service)
         img = cv2.resize(img, (416, 416))
         
         metadata = getMetadata(bytes)
         pointToOnline(metadata['latitude'], metadata['longitude'], id)
-        
+        # st_pred = time.time()
         prediction = model.predict(img)
+        # et_pred = time.time()
+        # print('Execution time detection:',(et_pred - st_pred), 'seconds')
         filtered_prediction = searchPredictions(prediction)
 
+
         for pred_boat in filtered_prediction:
+            # st_loc = time.time()
             coords = localise(metadata, pred_boat)
+            # et_loc = time.time()
+            # print('Execution time localisation:',(et_loc - st_loc), 'seconds')
+            
+            # st_wr = time.time()
             polygonToOnline(coords, id)
+            # et_wr = time.time()
+            # print('Execution time writing to file:',(et_wr - st_wr) , 'seconds')            
             # polygonToMap(coords, id)
         
         visited.append(id)
 
+        # st_dr = time.time()
         results = service.files().list(
         pageSize=10, fields="nextPageToken, files(id, name)",q="mimeType='image/jpeg' and name contains 'DJI'").execute()
         items = results.get('files', [])
+        # et_dr = time.time()
+        # print('Execution time from drive:',(et_dr - st_dr), 'seconds')
         items.reverse()
         for pic in items:
             if pic['id'] in visited:
                 break
             stack.append(pic['id'])
 
+        et_tot = time.time()
+        print('Execution time one image:',(et_tot - st_tot), 'seconds')
             
 
 

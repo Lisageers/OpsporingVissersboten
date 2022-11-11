@@ -28,9 +28,10 @@ def visualiseDetectionFromPath(path, n):
     for i in range(0,n,2):
         img_path = f"{path}{494+i}.JPG"
         img_path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0592.JPG" 
-        img = cv2.imread(r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0124.JPG")
+        img = cv2.imread(r"C:\Users\lgeers\OneDrive - Esri Nederland\9nov2022\DJI_0043_W.JPG")
         img_d = cv2.resize(img, (416, 416))
         pred = model.predict(img_d)
+        pred = searchPredictions(pred)
         
         x = np.array(Image.open(img_path), dtype=np.uint8)
         fig, ax = plt.subplots(1)
@@ -38,12 +39,16 @@ def visualiseDetectionFromPath(path, n):
 
         # Create a Rectangle patches of bounding boxes from pred
         bbs = pred[0]
+        # bbs = pred
+
         for i, bb  in enumerate(bbs):
+            # bb=bb[0]
             rect = patches.Rectangle((bb[0], bb[1]), bb[2], bb[3], linewidth=1, edgecolor='r', facecolor="none")
+
             # Add the patch to the Axes
             ax.add_patch(rect)
             # add label
-            ax.text(bb[0], bb[1], pred[1][i], ha='left', va='bottom',color='red')
+            ax.text(bb[0], bb[1], f"{i}:{pred[1][i]}", ha='left', va='bottom',color='red')
 
         plt.show()
         print(pred)
@@ -102,18 +107,18 @@ def searchPredictions(pred):
 def clearLayer():
     arcpy.env.overwriteOutput = True
 
-    inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\calculatedpolygon"
-    array = arcpy.Array([arcpy.Point(0,0),
-                        arcpy.Point(0,0),
-                        arcpy.Point(0,0),
-                        arcpy.Point(0,0)
-                        ])
-    geom = arcpy.Polygon(array,arcpy.SpatialReference(4326))  
-    arcpy.CopyFeatures_management([geom], inputFCL)
-    arcpy.AddField_management(inputFCL, "Path", "TEXT")
-    with arcpy.da.UpdateCursor(inputFCL, ["SHAPE@"]) as uCur:
-        for row in uCur:
-            uCur.deleteRow()
+    # inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\calculatedpolygon"
+    # array = arcpy.Array([arcpy.Point(0,0),
+    #                     arcpy.Point(0,0),
+    #                     arcpy.Point(0,0),
+    #                     arcpy.Point(0,0)
+    #                     ])
+    # geom = arcpy.Polygon(array,arcpy.SpatialReference(4326))  
+    # arcpy.CopyFeatures_management([geom], inputFCL)
+    # arcpy.AddField_management(inputFCL, "Path", "TEXT")
+    # with arcpy.da.UpdateCursor(inputFCL, ["SHAPE@"]) as uCur:
+    #     for row in uCur:
+    #         uCur.deleteRow()
 
     inputFCL =  r"C:\Users\lgeers\Documents\ArcGIS\Projects\Opsporingvissersboten\Opsporingvissersboten.gdb\dronepoint"
     geom = arcpy.PointGeometry(arcpy.Point(0,0),arcpy.SpatialReference(4326))
@@ -231,14 +236,22 @@ def localise3d(metadata, pred):
     pixel_y = pred[0][1]
 
     middle_x, middle_y = round(metadata['pixelwidth'] / 2), round(metadata['pixelheight'] / 2)
-    pixeldist_x = pixel_x - middle_x
-    pixeldist_y = pixel_y - middle_y 
+    pixeldist_x = (pixel_x - middle_x)
+    pixeldist_y = -(pixel_y - middle_y )
 
     rot_x = pixeldist_x * cos(a) + pixeldist_y * sin(a) 
     rot_y = pixeldist_x * -sin(a) + pixeldist_y * cos(a)
 
-    gd_x = metadata['altitude'] * tan(rot_x*fov_per_pixelx + pitch)
+    middle_hypo = metadata['altitude'] * tan(middle_y*fov_per_pixely)
+    left_hypo = metadata['altitude'] * tan(middle_y*fov_per_pixely)
+
+
+    # gd_x = metadata['altitude'] * tan(rot_x*fov_per_pixelx)
     gd_y = metadata['altitude'] * tan(rot_y*fov_per_pixely + pitch)
+
+    anglex = degrees(rot_x*fov_per_pixelx + pitch)
+    angley = degrees(rot_y*fov_per_pixely + pitch)
+
 
     # # update lat long
     y_lat = (gd_y / 111319.9) + metadata['latitude'] 
