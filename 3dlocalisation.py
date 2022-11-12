@@ -242,15 +242,17 @@ def localise3d(metadata, pred):
     rot_x = pixeldist_x * cos(a) + pixeldist_y * sin(a) 
     rot_y = pixeldist_x * -sin(a) + pixeldist_y * cos(a)
 
-    middle_hypo = metadata['altitude'] * tan(middle_y*fov_per_pixely)
-    left_hypo = metadata['altitude'] * tan(middle_y*fov_per_pixely)
+    # middle_hypo = metadata['altitude'] * tan(middle_y*fov_per_pixely)
+    # left_hypo = metadata['altitude'] * tan(middle_y*fov_per_pixely)
 
 
-    # gd_x = metadata['altitude'] * tan(rot_x*fov_per_pixelx)
+    # gd_x = metadata['altitude'] * tan(rot_x*fov_per_pixelx + pitch)
     gd_y = metadata['altitude'] * tan(rot_y*fov_per_pixely + pitch)
+    angle = atan(middle_x / (rot_y+middle_y))
+    gd_x = (tan(angle) * gd_y) / (middle_x/2) * rot_x
 
-    anglex = degrees(rot_x*fov_per_pixelx + pitch)
-    angley = degrees(rot_y*fov_per_pixely + pitch)
+    # anglex = degrees(rot_x*fov_per_pixelx + pitch)
+    # angley = degrees(rot_y*fov_per_pixely + pitch)
 
 
     # # update lat long
@@ -328,24 +330,24 @@ def opsporingsLoop():
 
 
 def main():
-    # clearLayer()
+    clearLayer()
     # opsporingsLoop()
-    visualiseDetectionFromPath(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 2) 
+    # visualiseDetectionFromPath(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 2) 
     # path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0098.JPG"
 #    readMetadata(img_path)
-    # path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0667.JPG"
-    # img = cv2.imread(path)
-    # img_d = cv2.resize(img, (416, 416))
-    # model = arcgis.learn.YOLOv3()
-    # pred = model.predict(img_d)  
-    # metadata = getMetadata(path)    
-    # filtered_prediction = searchPredictions(pred) 
-    # for pred_boat in filtered_prediction:
-    #     coords = localise3d(metadata, pred_boat)
-    #     # coords = localise(metadata, pred_boat)
-    #     pointToMap(coords, path)
-    #     # 121.80337524414062, 180.82923889160156, 53.75262451171875, 16.475677490234375
-    #     # break
+    path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0667.JPG"
+    img = cv2.imread(path)
+    img_d = cv2.resize(img, (416, 416))
+    model = arcgis.learn.YOLOv3()
+    pred = model.predict(img_d)  
+    metadata = getMetadata(path)    
+    filtered_prediction = searchPredictions(pred) 
+    for pred_boat in filtered_prediction:
+        coords = localise3d(metadata, pred_boat)
+        # coords = localise(metadata, pred_boat)
+        pointToMap(coords, path)
+        # 121.80337524414062, 180.82923889160156, 53.75262451171875, 16.475677490234375
+        # break
 
 
 
