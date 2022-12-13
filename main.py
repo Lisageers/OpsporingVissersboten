@@ -269,8 +269,8 @@ def opsporingsLoop():
                 break
             stack.append(pic['id'])
 
-        et_tot = time.time()
-        print('Execution time one image:',(et_tot - st_tot), 'seconds')
+        # et_tot = time.time()
+        # print('Execution time one image:',(et_tot - st_tot), 'seconds')
             
 
 

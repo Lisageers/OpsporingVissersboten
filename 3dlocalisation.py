@@ -17,9 +17,9 @@ import io
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-from googleapiclient.http import MediaIoBaseDownload
+# from googleapiclient.discovery import build
+# from googleapiclient.errors import HttpError
+# from googleapiclient.http import MediaIoBaseDownload
 import urllib.request
 import torch
 
@@ -28,14 +28,14 @@ def visualiseDetectionFromPath(path, n):
     for i in range(0,n,2):
         img_path = f"{path}{494+i}.JPG"
         img_path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0592.JPG" 
-        img = cv2.imread(r"C:\Users\lgeers\OneDrive - Esri Nederland\9nov2022\DJI_0043_W.JPG")
-        img_d = cv2.resize(img, (416, 416))
-        pred = model.predict(img_d)
-        pred = searchPredictions(pred)
+        img = cv2.imread(r"C:\Users\lgeers\Documents\detresult9nov\denoever\DJI_0592.JPG")
+        # img_d = cv2.resize(img, (416, 416))
+        pred = model.predict(img, resize=True)
+        # pred = searchPredictions(pred)
         
         x = np.array(Image.open(img_path), dtype=np.uint8)
         fig, ax = plt.subplots(1)
-        ax.imshow(img_d)
+        ax.imshow(img)
 
         # Create a Rectangle patches of bounding boxes from pred
         bbs = pred[0]
@@ -44,11 +44,10 @@ def visualiseDetectionFromPath(path, n):
         for i, bb  in enumerate(bbs):
             # bb=bb[0]
             rect = patches.Rectangle((bb[0], bb[1]), bb[2], bb[3], linewidth=1, edgecolor='r', facecolor="none")
-
             # Add the patch to the Axes
             ax.add_patch(rect)
             # add label
-            ax.text(bb[0], bb[1], f"{i}:{pred[1][i]}", ha='left', va='bottom',color='red')
+            ax.text(bb[0], bb[1], pred[1][i], ha='left', va='bottom',color='red')
 
         plt.show()
         print(pred)
@@ -86,11 +85,11 @@ def getMetadata(img):
     # kan sneller
     exif = { ExifTags.TAGS[k]: v for k, v in img._getexif().items() if k in ExifTags.TAGS }
     metadict['focallength'] =  float(exif['FocalLength'])
-    # metadict['pixelwidth'] =  float(exif['ImageWidth'])
-    # metadict['pixelheight'] =  float(exif['ImageLength'])
+    metadict['pixelwidth'] =  float(exif['ImageWidth'])
+    metadict['pixelheight'] =  float(exif['ImageLength'])
 
-    metadict['pixelwidth'] =  416
-    metadict['pixelheight'] =  416
+    # metadict['pixelwidth'] =  416
+    # metadict['pixelheight'] =  416
     metadict['camxdim'] = 6.4
     metadict['camydim'] = 4.8
 
@@ -227,10 +226,10 @@ def localise3d(metadata, pred):
     # rotate using yaw
     a = radians(metadata['yaw'])
     pitch = radians(90 - (-metadata['pitch']))
-    print(pitch)
+    # print(pitch)
     fov_per_pixelx = viewangl_x / metadata['pixelwidth']
     fov_per_pixely = viewangl_y / metadata['pixelheight']
-    print(fov_per_pixelx)
+    # print(fov_per_pixelx)
 
     pixel_x = pred[0][0]+ (pred[0][2]/2)
     pixel_y = pred[0][1]
@@ -239,25 +238,22 @@ def localise3d(metadata, pred):
     pixeldist_x = (pixel_x - middle_x)
     pixeldist_y = -(pixel_y - middle_y )
 
-    rot_x = pixeldist_x * cos(a) + pixeldist_y * sin(a) 
-    rot_y = pixeldist_x * -sin(a) + pixeldist_y * cos(a)
-
-    # middle_hypo = metadata['altitude'] * tan(middle_y*fov_per_pixely)
-    # left_hypo = metadata['altitude'] * tan(middle_y*fov_per_pixely)
-
+    # rot_x = pixeldist_x * cos(a) + pixeldist_y * sin(a) 
+    # rot_y = pixeldist_x * -sin(a) + pixeldist_y * cos(a)
 
     # gd_x = metadata['altitude'] * tan(rot_x*fov_per_pixelx + pitch)
-    gd_y = metadata['altitude'] * tan(rot_y*fov_per_pixely + pitch)
-    angle = atan(middle_x / (rot_y+middle_y))
-    gd_x = (tan(angle) * gd_y) / (middle_x/2) * rot_x
+    gd_y = metadata['altitude'] * tan(pixeldist_y*fov_per_pixely + pitch)
+    # angle = atan(middle_x / (rot_y+middle_y))
+    # gd_x = (tan(angle) * gd_y) / (middle_x/2) * rot_x
+    hypo_y = metadata['altitude'] / cos(pixeldist_y*fov_per_pixely + pitch) 
+    gd_x = (hypo_y * tan(viewangl_x/2)) / (metadata['pixelwidth']/2) * pixeldist_x
 
-    # anglex = degrees(rot_x*fov_per_pixelx + pitch)
-    # angley = degrees(rot_y*fov_per_pixely + pitch)
-
+    rot_x = gd_x * cos(a) + gd_y * sin(a) 
+    rot_y = gd_x * -sin(a) + gd_y * cos(a)
 
     # # update lat long
-    y_lat = (gd_y / 111319.9) + metadata['latitude'] 
-    x_long = (gd_x / 111319.9) + metadata['longitude']
+    y_lat = (rot_y / 111319.9) + metadata['latitude'] 
+    x_long = (rot_x / 111319.9) + metadata['longitude']
 
     return (y_lat, x_long, (metadata['latitude'], metadata['longitude']))
 
@@ -333,21 +329,21 @@ def main():
     clearLayer()
     # opsporingsLoop()
     # visualiseDetectionFromPath(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 2) 
-    # path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0098.JPG"
-#    readMetadata(img_path)
     path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0667.JPG"
-    img = cv2.imread(path)
-    img_d = cv2.resize(img, (416, 416))
+#    readMetadata(img_path)
+    # path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0124.JPG"
+    # img = cv2.imread(path)
+    # img_d = cv2.resize(img, (416, 416))
     model = arcgis.learn.YOLOv3()
-    pred = model.predict(img_d)  
+    pred = model.predict(path, resize=True) 
     metadata = getMetadata(path)    
     filtered_prediction = searchPredictions(pred) 
     for pred_boat in filtered_prediction:
         coords = localise3d(metadata, pred_boat)
         # coords = localise(metadata, pred_boat)
         pointToMap(coords, path)
-        # 121.80337524414062, 180.82923889160156, 53.75262451171875, 16.475677490234375
-        # break
+    #     # 121.80337524414062, 180.82923889160156, 53.75262451171875, 16.475677490234375
+    #     # break
 
 
 
