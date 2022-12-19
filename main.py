@@ -183,8 +183,8 @@ def localise(metadata, prediction):
     rot_y = [p[0] * -sin(a) + p[1] * cos(a) for p in bounding_box]
     
     # update lat long
-    y_lat = [((y*mmp_y) / 111319.9) + metadata['latitude'] for y in rot_y]
-    x_long = [((x*mmp_x) / 111319.9) + metadata['longitude'] for x in rot_x]
+    y_lat = [((y*mmp_y) / 111319.5) + metadata['latitude'] for y in rot_y]
+    x_long = [((x*mmp_x) / (111319.5 * cos(radians(y_lat[i])))) + metadata['longitude'] for i, x in enumerate(rot_x)]
 
     return (y_lat, x_long, (metadata['latitude'], metadata['longitude']))
 

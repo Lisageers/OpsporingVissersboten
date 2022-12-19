@@ -204,7 +204,8 @@ def localise(metadata, pred):
 
     middle_x, middle_y = round(metadata['pixelwidth'] / 2), round(metadata['pixelheight'] / 2)
     pixeldist_x = [i - middle_x for i in pixel_x]
-    pixeldist_y = [i - middle_y for i in pixel_y]
+    pixeldist_y = [-(i - middle_y) for i in pixel_y]
+
 
     bounding_box = [(pixeldist_x[0], pixeldist_y[0]), (pixeldist_x[1], pixeldist_y[0]),
                     (pixeldist_x[1], pixeldist_y[1]), (pixeldist_x[0], pixeldist_y[1])]
@@ -213,8 +214,8 @@ def localise(metadata, pred):
     rot_y = [p[0] * -sin(a) + p[1] * cos(a) for p in bounding_box]
     
     # update lat long
-    y_lat = [((y*mmp_y) / 111319.9) + metadata['latitude'] for y in rot_y]
-    x_long = [((x*mmp_x) / 111319.9) + metadata['longitude'] for x in rot_x]
+    y_lat = [((y*mmp_y) / 111319.5) + metadata['latitude'] for y in rot_y]
+    x_long = [((x*mmp_x) / (111319.5 * cos(radians(y_lat[i])))) + metadata['longitude'] for i, x in enumerate(rot_x)]
 
     return (y_lat, x_long, (metadata['latitude'], metadata['longitude']))
 
@@ -241,10 +242,10 @@ def localise3d(metadata, pred):
     # rot_x = pixeldist_x * cos(a) + pixeldist_y * sin(a) 
     # rot_y = pixeldist_x * -sin(a) + pixeldist_y * cos(a)
 
-    # gd_x = metadata['altitude'] * tan(rot_x*fov_per_pixelx + pitch)
+    # gd_x = metadata['altitude'] * tan(pixeldist_x*fov_per_pixelx + pitch)
     gd_y = metadata['altitude'] * tan(pixeldist_y*fov_per_pixely + pitch)
-    # angle = atan(middle_x / (rot_y+middle_y))
-    # gd_x = (tan(angle) * gd_y) / (middle_x/2) * rot_x
+    # angle = atan(middle_x / (pixeldist_y +middle_y))
+    # gd_x = (tan(angle) * gd_y) / (middle_x/2) * pixeldist_x
     hypo_y = metadata['altitude'] / cos(pixeldist_y*fov_per_pixely + pitch) 
     gd_x = (hypo_y * tan(viewangl_x/2)) / (metadata['pixelwidth']/2) * pixeldist_x
 
@@ -252,8 +253,8 @@ def localise3d(metadata, pred):
     rot_y = gd_x * -sin(a) + gd_y * cos(a)
 
     # # update lat long
-    y_lat = (rot_y / 111319.9) + metadata['latitude'] 
-    x_long = (rot_x / 111319.9) + metadata['longitude']
+    y_lat = (rot_y / 111319.5) + metadata['latitude'] 
+    x_long = (rot_x / (111319.5 * cos(radians(y_lat)))) + metadata['longitude']
 
     return (y_lat, x_long, (metadata['latitude'], metadata['longitude']))
 
@@ -329,9 +330,9 @@ def main():
     clearLayer()
     # opsporingsLoop()
     # visualiseDetectionFromPath(r"C:\\Users\\lgeers\\Pictures\\Lisa Den Oever 2022 15 juli 01\\DJI_0", 2) 
-    path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0667.JPG"
+    # path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0667.JPG"
 #    readMetadata(img_path)
-    # path = r"C:\Users\lgeers\OneDrive - Esri Nederland\Lisa Den Oever 2022 15 juli 01\DJI_0124.JPG"
+    path = r"C:\Users\lgeers\Documents\detresult9nov\nonnadir_still\DJI_0044_W.JPG"
     # img = cv2.imread(path)
     # img_d = cv2.resize(img, (416, 416))
     model = arcgis.learn.YOLOv3()
@@ -342,6 +343,7 @@ def main():
         coords = localise3d(metadata, pred_boat)
         # coords = localise(metadata, pred_boat)
         pointToMap(coords, path)
+        # polygonToMap(coords, path)
     #     # 121.80337524414062, 180.82923889160156, 53.75262451171875, 16.475677490234375
     #     # break
 
